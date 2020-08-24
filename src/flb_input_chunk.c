@@ -43,6 +43,11 @@ ssize_t flb_input_chunk_get_size(struct flb_input_chunk *ic)
     return cio_chunk_get_content_size(ic->chunk);
 }
 
+ssize_t flb_input_chunk_get_real_size(struct flb_input_chunk *ic)
+{
+    return cio_chunk_get_content_size(ic->chunk);
+}
+
 int flb_input_chunk_write(void *data, const char *buf, size_t len)
 {
     int ret;
@@ -125,8 +130,25 @@ struct flb_input_chunk *flb_input_chunk_create(struct flb_input_instance *in,
     struct cio_chunk *chunk;
     struct flb_storage_input *storage;
     struct flb_input_chunk *ic;
+    size_t total_size = 0;
 
+    total_size = flb_input_chunk_total_size_all(in);
+    flb_error("[input chunk] phk storage size: %d, %d", total_size, in->storage_limit);
     storage = in->storage;
+
+    /* PHK - TODO: Here we need to remove old chunk and add new chunk */
+    if (total_size >= in->storage_limit) {
+        flb_error("[input chunk] Storage limit exceeded - when  creating chunk file: %s",
+                  storage->stream->name);
+        
+        ic = flb_input_chunk_get_last(in);
+
+        if (ic != NULL) {
+            flb_error("[input chunk] Deleting the last chunk: %s", flb_input_chunk_get_name(ic));
+            flb_input_chunk_destroy(ic, CIO_TRUE);
+        }
+        //return NULL;
+    }
 
     /* chunk name */
     generate_chunk_name(in, name, sizeof(name) - 1);
@@ -280,6 +302,44 @@ size_t flb_input_chunk_total_size(struct flb_input_instance *in)
     }
 
     return total;
+}
+
+/* Include the files not mapped and the real size. */
+size_t flb_input_chunk_total_size_all(struct flb_input_instance *in)
+{
+    ssize_t bytes;
+    size_t total = 0;
+    struct mk_list *head;
+    struct flb_input_chunk *ic;
+
+    mk_list_foreach(head, &in->chunks) {
+        ic = mk_list_entry(head, struct flb_input_chunk, _head);
+
+        /* Skip files who are 'down'
+        if (cio_chunk_is_up(ic->chunk) == CIO_FALSE) {
+            continue;
+        }
+         */
+
+        bytes = flb_input_chunk_get_real_size(ic);
+        if (bytes <= 0) {
+            continue;
+        }
+        total += bytes;
+    }
+
+    return total;
+}
+
+struct flb_input_chunk* flb_input_chunk_get_last(struct flb_input_instance *in)
+{
+    struct flb_input_chunk *ic = NULL;
+
+    if (mk_list_is_empty(&in->chunks) != 0) {
+        ic = mk_list_entry_first(&in->chunks, struct flb_input_chunk, _head);
+    }
+
+    return ic;
 }
 
 /*

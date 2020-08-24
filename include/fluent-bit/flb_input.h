@@ -193,6 +193,8 @@ struct flb_input_instance {
      */
     size_t mem_buf_limit;
 
+    size_t storage_limit;
+
     /*
      * Define the buffer status:
      *

@@ -472,6 +472,7 @@ struct cio_file *cio_file_open(struct cio_ctx *ctx,
     int len;
     char *path;
     struct cio_file *cf;
+    int delete = CIO_FALSE;
 
     len = strlen(ch->name);
     if (len == 1 && (ch->name[0] == '.' || ch->name[0] == '/')) {
@@ -532,7 +533,12 @@ struct cio_file *cio_file_open(struct cio_ctx *ctx,
     /* Map the file */
     ret = mmap_file(ctx, ch, cf->fs_size);
     if (ret == CIO_ERROR || ret == CIO_CORRUPTED || ret == CIO_RETRY) {
-        cio_file_close(ch, CIO_FALSE);
+        if (ret == CIO_CORRUPTED) {
+            delete = CIO_TRUE;
+            cio_log_debug(ch->ctx, "[cio file] removing corrupted file %s",
+                          ch->name);
+        }
+        cio_file_close(ch, delete);
         *err = ret;
         return NULL;
     }

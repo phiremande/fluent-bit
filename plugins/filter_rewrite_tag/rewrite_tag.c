@@ -64,6 +64,17 @@ static int emitter_create(struct flb_rewrite_tag *ctx)
         ins->mem_buf_limit = ctx->emitter_mem_buf_limit;
     }
 
+    if(ctx->emitter_storage_limit > 0) {
+        ins->storage_limit = ctx->emitter_storage_limit;
+    }
+
+    /* Set the storage limit */
+    ret = flb_input_set_property(ins, "storage_limit",
+                                 ctx->emitter_storage_limit);
+    if (ret == -1) {
+        flb_plg_error(ctx->ins, "cannot set storage_limit");
+    }
+
     /* Set the storage type */
     ret = flb_input_set_property(ins, "storage.type",
                                  ctx->emitter_storage_type);
@@ -462,6 +473,11 @@ static struct flb_config_map config_map[] = {
      FLB_CONFIG_MAP_SIZE, "emitter_mem_buf_limit", FLB_RTAG_MEM_BUF_LIMIT_DEFAULT,
      FLB_FALSE, FLB_TRUE, offsetof(struct flb_rewrite_tag, emitter_mem_buf_limit),
      "set a memory buffer limit to restrict memory usage of emitter"
+    },
+    {
+     FLB_CONFIG_MAP_SIZE, "emitter_storage_limit", FLB_RTAG_STORAGE_LIMIT_DEFAULT,
+     FLB_FALSE, FLB_TRUE, offsetof(struct flb_rewrite_tag, emitter_storage_limit),
+     "set a storage limit"
     },
     /* EOF */
     {0}
