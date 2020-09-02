@@ -126,7 +126,7 @@ static inline int flb_engine_manager(flb_pipefd_t fd, struct flb_config *config)
     /* Flush all remaining data */
     if (type == 1) {                  /* Engine type */
         if (key == FLB_ENGINE_STOP) {
-            flb_trace("[engine] flush enqueued data");
+            flb_debug("[engine] flush enqueued data");
             flb_engine_flush(config, NULL);
             return FLB_ENGINE_STOP;
         }
@@ -144,7 +144,7 @@ static inline int flb_engine_manager(flb_pipefd_t fd, struct flb_config *config)
         task_id   = FLB_TASK_ID(key);
         thread_id = FLB_TASK_TH(key);
 
-#ifdef FLB_HAVE_TRACE
+//#ifdef FLB_HAVE_TRACE
         char *trace_st = NULL;
 
         if (ret == FLB_OK) {
@@ -157,13 +157,19 @@ static inline int flb_engine_manager(flb_pipefd_t fd, struct flb_config *config)
             trace_st = "RETRY";
         }
 
-        flb_trace("%s[engine] [task event]%s task_id=%i thread_id=%i return=%s",
+        flb_debug("%s[engine] [task event]%s task_id=%i thread_id=%i return=%s",
                   ANSI_YELLOW, ANSI_RESET,
                   task_id, thread_id, trace_st);
-#endif
+//#endif
 
         task   = config->tasks_map[task_id].task;
         out_th = flb_output_thread_get(thread_id, task);
+        if (!out_th || (&out_th->_head)->next == NULL) {
+            flb_debug("[engine] output thread %i is already destroyed", thread_id);
+            return 0;
+        } else {
+            flb_debug("[engine] output thread %i is still active", thread_id);
+        }
         ins    = out_th->o_ins;
 
         /* A thread has finished, delete it */
@@ -604,7 +610,15 @@ int flb_engine_start(struct flb_config *config)
                 flb_sched_event_handler(config, event);
             }
             else if (event->type == FLB_ENGINE_EV_CUSTOM) {
-                event->handler(event);
+                if (event->status == MK_EVENT_REGISTERED) {
+                    flb_debug("[engine] calling registered callback for event: %i", event->fd);
+                    event->handler(event);
+                }
+                else {
+                    flb_debug("[engine] event is already de-registered: %p", event);
+                    /* still calling to see the core dump */
+                    event->handler(event);
+                }
             }
             else if (event->type == FLB_ENGINE_EV_THREAD) {
                 struct flb_upstream_conn *u_conn;

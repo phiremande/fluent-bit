@@ -145,6 +145,7 @@ static inline int _mk_event_add(struct mk_event_ctx *ctx, int fd,
 static inline int _mk_event_del(struct mk_event_ctx *ctx, struct mk_event *event)
 {
     int ret;
+    printf("PHK MK deleting %i\n", event->fd);
 
     ret = epoll_ctl(ctx->efd, EPOLL_CTL_DEL, event->fd, NULL);
     MK_TRACE("[FD %i] Epoll, remove from QUEUE_FD=%i, ret=%i",
@@ -155,6 +156,7 @@ static inline int _mk_event_del(struct mk_event_ctx *ctx, struct mk_event *event
 #endif
     }
 
+    printf("PHK MK deleted %i\n", event->fd);
     return ret;
 }
 

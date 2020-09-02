@@ -56,6 +56,7 @@ struct flb_input_chunk {
 struct flb_input_chunk *flb_input_chunk_create(struct flb_input_instance *in,
                                                const char *tag, int tag_len);
 int flb_input_chunk_destroy(struct flb_input_chunk *ic, int del);
+int flb_input_chunk_destroy_old(struct flb_input_chunk *ic, int del);
 void flb_input_chunk_destroy_all(struct flb_input_instance *in);
 int flb_input_chunk_write(void *data, const char *buf, size_t len);
 int flb_input_chunk_write_at(void *data, off_t offset,

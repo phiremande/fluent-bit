@@ -98,6 +98,7 @@ struct mk_event_loop {
     int n_events;              /* number of events reported */
     struct mk_event *events;   /* copy or reference of events triggered */
     void *data;                /* mk_event_ctx_t from backend */
+
 };
 
 static inline void MK_EVENT_INIT(struct mk_event *ev, int fd, void *data,

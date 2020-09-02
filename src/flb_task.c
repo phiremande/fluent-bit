@@ -125,6 +125,11 @@ struct flb_task_retry *flb_task_retry_create(struct flb_task *task,
     out_th = (struct flb_output_thread *) data;
     o_ins = out_th->o_ins;
 
+    if ((&out_th->_head)->next == NULL) {
+        flb_debug("[task] thread is destroyed %i", out_th->id);
+        return NULL;
+    }
+
     /* First discover if is there any previous retry context in the task */
     mk_list_foreach_safe(head, tmp, &task->retries) {
         retry = mk_list_entry(head, struct flb_task_retry, _head);

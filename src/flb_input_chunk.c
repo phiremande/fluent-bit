@@ -145,7 +145,7 @@ struct flb_input_chunk *flb_input_chunk_create(struct flb_input_instance *in,
 
         if (ic != NULL) {
             flb_error("[input chunk] Deleting the last chunk: %s", flb_input_chunk_get_name(ic));
-            flb_input_chunk_destroy(ic, CIO_TRUE);
+            flb_input_chunk_destroy_old(ic, CIO_TRUE);
         }
         //return NULL;
     }
@@ -223,6 +223,94 @@ int flb_input_chunk_destroy(struct flb_input_chunk *ic, int del)
 
     return 0;
 }
+
+int flb_input_chunk_destroy_old(struct flb_input_chunk *ic, int del)
+{
+    struct flb_input_instance *in = ic->in;
+    struct mk_list *tmp;
+    struct mk_list *tmp1;
+    struct mk_list *head;
+    struct mk_list *head1;
+    struct flb_task *task;
+	int deleted = FLB_FALSE;
+    int result = 0;
+
+#if 0
+    if (in) {
+        mk_list_foreach_safe(head, tmp, &in->tasks) {
+            task = mk_list_entry(head, struct flb_task, _head);
+            if (task->ic == ic) {
+                flb_task_destroy(task, FLB_TRUE);
+				deleted = FLB_TRUE;
+				flb_info("[input chunk] Destroyed the task along with the chunk: %i, %s", task->id, flb_input_chunk_get_name(ic));
+            }
+        }
+    }
+
+	/* no running tasks for this chunk */
+	if (deleted == FLB_FALSE) {
+		flb_info("[input chunk] Destroyed the chunk alone: %s", flb_input_chunk_get_name(ic));
+		flb_input_chunk_destroy(ic, del);
+	}
+#endif
+    /* Destroy all threads using the task associated with this chunk */
+
+    struct flb_output_thread *out_th;
+
+    if (in) {
+        mk_list_foreach_safe(head, tmp, &in->tasks) {
+            task = mk_list_entry(head, struct flb_task, _head);
+            if (task->ic == ic) {
+                //flb_task_destroy(task, FLB_TRUE);
+                flb_info("[input chunk] task details id: %i, users: %i, threads: %i", task->id, task->users, task->n_threads);
+                /*
+                mk_list_foreach_safe(head1, tmp1, &task->threads) {
+                    out_th = mk_list_entry(head1, struct flb_output_thread, _head);
+                    flb_task_retry_clean(task, out_th->parent);
+                    flb_output_thread_destroy_id(out_th->id, task);
+                    flb_info("[input chunk] Destroyed thread: %i", out_th->id);
+                }
+
+                mk_list_foreach_safe(head1, tmp1, &task->retries) {
+                    flb_info("retries not empty for task %i", task->id);
+                }
+                */
+                mk_list_foreach(head1, &task->threads) {
+                    flb_info("[input chunk] Iterating threads");
+                    out_th = mk_list_entry(head1, struct flb_output_thread, _head);
+
+                    flb_task_retry_clean(task, out_th->parent);
+                    result = flb_output_thread_destroy_id(out_th->id, task);
+                    flb_info("[input chunk] Destroyed the thread: %i, result: %i", out_th->id, result);
+
+                    if (task->users == 0 && mk_list_size(&task->retries) == 0) {
+                        deleted = FLB_TRUE;
+                        flb_info("[input chunk] Destroyed the task along with the chunk: %i, %s", task->id, flb_input_chunk_get_name(ic));
+                        flb_task_destroy(task, FLB_TRUE);
+                        /* no more users */
+                        break;
+                    }
+                    flb_info("[input chunk] Hello");
+                }
+
+                //if (task->users == 0 && mk_list_size(&task->retries) == 0) {
+                    //flb_task_destroy(task, FLB_TRUE);
+                    //deleted = FLB_TRUE;
+                    //flb_info("[input chunk] Destroyed the task along with the chunk: %i, %s", task->id, flb_input_chunk_get_name(ic));
+                //}
+            }
+        }
+    }
+
+	if (deleted == FLB_FALSE) {
+        /* no tasks associated */
+		flb_info("[input chunk] Destroyed the chunk alone: %s", flb_input_chunk_get_name(ic));
+		flb_input_chunk_destroy(ic, del);
+	}
+
+    return 0;
+}
+
 
 /* Return or create an available chunk to write data */
 static struct flb_input_chunk *input_chunk_get(const char *tag, int tag_len,
